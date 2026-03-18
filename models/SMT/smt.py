@@ -22,8 +22,6 @@ class DWConv(nn.Module):
     def __init__(self, dim=768):
         super(DWConv, self).__init__()
         self.dwconv = nn.Conv1d(dim, dim, 3, 1, 1, bias=True, groups=dim)
-        # self.dwconv = nn.Conv1d(dim, dim, 5, 1, 2, bias=True, groups=dim) # 扩大卷积核 无提升
-        # self.dwconv = WTConv1d(dim, dim)
 
     def forward(self, x, L):
         B, N, C = x.shape
@@ -88,11 +86,9 @@ class Attention(nn.Module):
             self.s = nn.Linear(dim, dim, bias=qkv_bias)
             for i in range(self.ca_num_heads):
                 if not ca_conv_expand_flag:
-                    local_conv = nn.Conv1d(dim//self.ca_num_heads, dim//self.ca_num_heads, kernel_size=(3+i*2), padding=(1+i), stride=1, groups=dim//self.ca_num_heads) # 原始方法
-                # local_conv = nn.Conv1d(dim//self.ca_num_heads, dim//self.ca_num_heads, kernel_size=(3+i*2*2), padding=(1+i*2), stride=1, groups=dim//self.ca_num_heads) # 加大卷积核增大比例 性能提升
+                    local_conv = nn.Conv1d(dim//self.ca_num_heads, dim//self.ca_num_heads, kernel_size=(3+i*2), padding=(1+i), stride=1, groups=dim//self.ca_num_heads) # original
                 else:
-                    local_conv = nn.Conv1d(dim//self.ca_num_heads, dim//self.ca_num_heads, kernel_size=(3+i*2*ca_conv_expand), padding=(1+i*ca_conv_expand), stride=1, groups=dim//self.ca_num_heads) # 将该处改为超参数的形式
-                # local_conv = nn.Conv1d(dim//self.ca_num_heads, dim//self.ca_num_heads, kernel_size=3, padding=(1+i), stride=1, groups=dim//self.ca_num_heads, dilation=i+1) # 通过扩张卷积实现
+                    local_conv = nn.Conv1d(dim//self.ca_num_heads, dim//self.ca_num_heads, kernel_size=(3+i*2*ca_conv_expand), padding=(1+i*ca_conv_expand), stride=1, groups=dim//self.ca_num_heads)
                 setattr(self, f"local_conv_{i + 1}", local_conv)
             self.proj0 = nn.Conv1d(dim, dim * expand_ratio, kernel_size=1, padding=0, stride=1, groups=self.split_groups)
             self.bn = nn.BatchNorm1d(dim * expand_ratio)
@@ -317,7 +313,7 @@ class SMT(nn.Module):
         self.depths = depths
         self.num_stages = len(embed_dims)
         if scaled_positional_emb:
-            self.alpha = nn.Parameter(torch.ones(1), requires_grad=True) # 控制正余弦位置编码大小
+            self.alpha = nn.Parameter(torch.ones(1), requires_grad=True)
         else:
             self.alpha = None
         self.pos_embed = Sinusoidal(d_model=embed_dims[0], max_len=sig_size)
@@ -340,7 +336,7 @@ class SMT(nn.Module):
             self.downsample_layers.append(downsample_layer)
         self.stages = nn.ModuleList()
         self.norm = nn.ModuleList()
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]
         cur = 0
         for i in range(self.num_stages):
             stage = nn.ModuleList([Block(
